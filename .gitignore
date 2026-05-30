@@ -1,0 +1,33 @@
+# Data stores — too large for git
+data/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Large climate/science data formats
+*.nc
+*.zarr
+*.h5
+*.hdf5
+*.grib
+*.grb
+*.grib2
+*.grb2
+
+# Environment / secrets
+.env
+.env.*
+
+# macOS
+.DS_Store
+
+# Editor artifacts
+.vscode/
+.idea/
