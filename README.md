@@ -101,6 +101,9 @@ dt_sst  = xr.open_datatree('data/nmme_sst.zarr',  engine='zarr', decode_times=Fa
 dt_tref = xr.open_datatree('data/nmme_tref.zarr', engine='zarr', decode_times=False)
 ```
 
+See `code/sanity_check.py` for worked examples of efficiently computing indices
+(Niño 3.4, global mean temperature) from the stores.
+
 ## Code Structure
 
 | File | Description |
@@ -109,7 +112,7 @@ dt_tref = xr.open_datatree('data/nmme_tref.zarr', engine='zarr', decode_times=Fa
 | `code/iridl_io.py` | OPeNDAP helpers: `fetch_data_block`, retry, DDS dim probing |
 | `code/build_archive.py` | Initial archive creation; resumes via `_filled` sentinel |
 | `code/update_archive.py` | Monthly incremental update |
-| `code/sanity_check.py` | Visual sanity check; see this script for worked examples of efficiently computing indices (Niño 3.4, global mean temperature) from the stores |
+| `code/sanity_check.py` | Visual sanity check and worked example of reading the stores |
 
 Behavioral specs for each script live in `specs/`.
 
