@@ -29,7 +29,8 @@ L in months, M integer member index.
 | Group `.zattrs` | model, URLs, created, last_updated | JSON |
 
 Seven groups total (see `nmme_models.py` for group names).
-Expected on-disk size after compression: ~25 GB total.
+Actual on-disk size after compression (2026-06): ~76 GB (`nmme_sst.zarr`)
++ ~100 GB (`nmme_tref.zarr`) ≈ 176 GB total.
 
 ## 4. Algorithm
 
@@ -104,7 +105,7 @@ exponential backoff starting at 2 s.
 - **K → °C**: CanSIPS-IC4 SST is delivered in Kelvin (`k_offset=True`).
   For tref, all models use `k_offset=False` and data is stored as native K.
 - **Non-contiguous S in a block**: possible if IRIDL has gaps. `np.searchsorted`
-  finds the position correctly; `fetch_sst_block` fetches the contiguous
+  finds the position correctly; `fetch_data_block` fetches the contiguous
   range `[si0, si1)` which may include gaps. Gaps remain NaN in the slab.
 - **IRIDL Squid cache returning zeros**: on repeated requests IRIDL may serve a
   stale cached response that contains all-zero data (verified for tref in 2026).

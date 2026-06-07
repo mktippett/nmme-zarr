@@ -68,8 +68,8 @@ mamba run -n pangeo-2025 python code/build_archive.py --models NASA-GEOSS2S
 ### Monthly update
 
 ```bash
-mamba run -n pangeo-2025 python code/update_archive.py           # SST
-mamba run -n pangeo-2025 python code/update_archive.py --var tref
+mamba run -n pangeo-2025 python code/update_archive.py           # both stores (sst + tref)
+mamba run -n pangeo-2025 python code/update_archive.py --var tref  # tref only
 
 # Update a single model
 mamba run -n pangeo-2025 python code/update_archive.py --models NCEP-CFSv2
