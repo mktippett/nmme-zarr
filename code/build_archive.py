@@ -4,10 +4,10 @@ build_archive.py — create (or resume) an NMME zarr archive.
 
 Usage
 -----
-  mamba run -n pangeo-2025 python code/build_archive.py
-  mamba run -n pangeo-2025 python code/build_archive.py --var tref
-  mamba run -n pangeo-2025 python code/build_archive.py --models NASA-GEOSS2S
-  mamba run -n pangeo-2025 python code/build_archive.py --models NASA-GEOSS2S --block-size 6
+  mamba run -n pangeo-local python code/build_archive.py
+  mamba run -n pangeo-local python code/build_archive.py --var tref
+  mamba run -n pangeo-local python code/build_archive.py --models NASA-GEOSS2S
+  mamba run -n pangeo-local python code/build_archive.py --models NASA-GEOSS2S --block-size 6
 
   --var        variable to archive: sst or tref (default: sst)
   --models     subset of group names from nmme_models.py (default: all 7)

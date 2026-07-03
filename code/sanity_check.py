@@ -24,9 +24,9 @@ Coordinate notes (discrepancies from reference pseudo-code):
   * tlat was undefined in reference pseudo-code; fixed as parameter (22.5°).
 
 Run:
-  mamba run -n pangeo-2025 python code/sanity_check.py --recent-only
-  mamba run -n pangeo-2025 python code/sanity_check.py
-  mamba run -n pangeo-2025 python code/sanity_check.py --models NASA-GEOSS2S GFDL-SPEAR
+  mamba run -n pangeo-local python code/sanity_check.py --recent-only
+  mamba run -n pangeo-local python code/sanity_check.py
+  mamba run -n pangeo-local python code/sanity_check.py --models NASA-GEOSS2S GFDL-SPEAR
 """
 
 import argparse

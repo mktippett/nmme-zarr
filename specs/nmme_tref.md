@@ -44,14 +44,14 @@ COLA models (combined=True) use the forecast URL for both streams, with no
 
 ```bash
 # Preflight: verify one model, one block
-mamba run -n pangeo-2025 python code/build_archive.py \
+mamba run -n pangeo-local python code/build_archive.py \
     --var tref --models NASA-GEOSS2S --block-size 1
 
 # Full build (all 7 models)
-mamba run -n pangeo-2025 python code/build_archive.py --var tref
+mamba run -n pangeo-local python code/build_archive.py --var tref
 
 # Monthly update
-mamba run -n pangeo-2025 python code/update_archive.py --var tref
+mamba run -n pangeo-local python code/update_archive.py --var tref
 ```
 
 ## 5. Known data-quality issues and rebuild history

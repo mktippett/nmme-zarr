@@ -39,11 +39,11 @@ Both stores live under `data/` (not committed to git — build locally).
 ## Environment
 
 ```bash
-# Create the environment (pangeo-2025 with zarr 3.x)
+# Create the environment (pangeo-local with zarr 3.x)
 mamba env create -f environment.yml   # if provided, else install manually
 
 # Run any script
-mamba run -n pangeo-2025 python code/<script>.py
+mamba run -n pangeo-local python code/<script>.py
 ```
 
 Key packages: `xarray`, `zarr` (v3), `numpy`, `netCDF4`, `numcodecs`, `matplotlib`.
@@ -54,35 +54,35 @@ Key packages: `xarray`, `zarr` (v3), `numpy`, `netCDF4`, `numcodecs`, `matplotli
 
 ```bash
 # SST — all 7 models (~hours)
-mamba run -n pangeo-2025 python code/build_archive.py
+mamba run -n pangeo-local python code/build_archive.py
 
 # tref — preflight one model first to verify URLs and dimensions
-mamba run -n pangeo-2025 python code/build_archive.py \
+mamba run -n pangeo-local python code/build_archive.py \
     --var tref --models NASA-GEOSS2S --block-size 1
-mamba run -n pangeo-2025 python code/build_archive.py --var tref
+mamba run -n pangeo-local python code/build_archive.py --var tref
 
 # Resume a single model (safe to re-run; skips completed starts)
-mamba run -n pangeo-2025 python code/build_archive.py --models NASA-GEOSS2S
+mamba run -n pangeo-local python code/build_archive.py --models NASA-GEOSS2S
 ```
 
 ### Monthly update
 
 ```bash
-mamba run -n pangeo-2025 python code/update_archive.py           # both stores (sst + tref)
-mamba run -n pangeo-2025 python code/update_archive.py --var tref  # tref only
+mamba run -n pangeo-local python code/update_archive.py           # both stores (sst + tref)
+mamba run -n pangeo-local python code/update_archive.py --var tref  # tref only
 
 # Update a single model
-mamba run -n pangeo-2025 python code/update_archive.py --models NCEP-CFSv2
+mamba run -n pangeo-local python code/update_archive.py --models NCEP-CFSv2
 
 # Re-fetch last N starts (e.g. if members were incomplete at build time)
-mamba run -n pangeo-2025 python code/update_archive.py --recheck-n 5
+mamba run -n pangeo-local python code/update_archive.py --recheck-n 5
 ```
 
 ### Sanity check
 
 ```bash
-mamba run -n pangeo-2025 python code/sanity_check.py --recent-only  # fast
-mamba run -n pangeo-2025 python code/sanity_check.py                 # full
+mamba run -n pangeo-local python code/sanity_check.py --recent-only  # fast
+mamba run -n pangeo-local python code/sanity_check.py                 # full
 ```
 
 Figures are written to `plots/sanity/`.

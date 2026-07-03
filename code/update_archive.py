@@ -11,11 +11,11 @@ For each model:
 
 Usage
 -----
-  mamba run -n pangeo-2025 python code/update_archive.py            # both stores, all models
-  mamba run -n pangeo-2025 python code/update_archive.py --var sst  # sst only
-  mamba run -n pangeo-2025 python code/update_archive.py --var sst tref  # explicit both
-  mamba run -n pangeo-2025 python code/update_archive.py --models NCEP-CFSv2
-  mamba run -n pangeo-2025 python code/update_archive.py --recheck-n 5
+  mamba run -n pangeo-local python code/update_archive.py            # both stores, all models
+  mamba run -n pangeo-local python code/update_archive.py --var sst  # sst only
+  mamba run -n pangeo-local python code/update_archive.py --var sst tref  # explicit both
+  mamba run -n pangeo-local python code/update_archive.py --models NCEP-CFSv2
+  mamba run -n pangeo-local python code/update_archive.py --recheck-n 5
 """
 
 import argparse
