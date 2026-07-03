@@ -47,6 +47,17 @@ mamba run -n pangeo-local python code/<script>.py
 ```
 
 Key packages: `xarray`, `zarr` (v3), `numpy`, `netCDF4`, `numcodecs`, `matplotlib`.
+`pangeo-local` currently has `zarr 3.2.1` + `xarray 2026.4.0` — this pairing matters, see gotcha below.
+
+**Gotcha:** `xarray`'s zarr backend must be new enough for whatever `zarr` version
+is installed. Older `xarray` reading/writing a zarr-format-3 store under
+`zarr>=3.2` fails with `AttributeError: 'Float32' object has no attribute
+'value'` — zarr 3.2 changed how array dtype metadata is represented
+internally, and older xarray releases assumed the previous representation.
+This is a local environment/dependency mismatch, not a store or IRIDL
+problem. It bit the `pangeo-2025` env (`xarray 2025.3.1` + `zarr 3.2.1`,
+from its `zarr>=3` unpinned dependency), which is why this project now uses
+`pangeo-local` instead.
 
 ## Usage
 

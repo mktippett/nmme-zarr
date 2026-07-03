@@ -65,6 +65,15 @@ For each model:
   correctly; no special treatment needed.
 - **T coordinate on append**: the appended Dataset includes `T[S, L] = S + L`
   so the T array stays consistent without rewriting old data.
+- **xarray/zarr version skew**: `ds_new.to_zarr(..., mode="a", append_dim="S")`
+  opens existing store variables (`open_store_variable`) as part of the
+  append, which decodes `_FillValue` against the array's zarr dtype metadata.
+  Under `zarr>=3.2`, that metadata is a `ZDType` object (e.g. `Float32(...)`)
+  with no `.value` attribute; xarray releases older than the zarr 3.2 dtype
+  refactor raise `AttributeError: 'Float32' object has no attribute 'value'`
+  on every read/write of the store, not just appends. Requires a matched
+  xarray/zarr pair (verified: `xarray 2026.4.0` + `zarr 3.2.1` in
+  `pangeo-local`). Not an IRIDL issue.
 
 ## 7. Synchronization Log
 
@@ -76,6 +85,7 @@ For each model:
 | 2026-05-05 | Removed `encoding` argument entirely from `append_new_starts`; xarray raises `ValueError` if encoding is supplied for any variable that already exists in the store during append | 2026-05-05 |
 | 2026-05-05 | Added `_patch_calendar()` helper; xarray also reads existing S/T metadata during append validation and cftime rejects `calendar='360'` (requires `'360_day'`); patch fixes the store in-place before each append | 2026-05-05 |
 | 2026-05-30 | `--var` changed to `nargs="+"` defaulting to all variables; bare invocation now updates both `sst` and `tref` stores; `--store` now errors if multiple vars are selected | 2026-05-30 |
+| 2026-07-03 | Switched documented environment from `pangeo-2025` to `pangeo-local` (usage docstring, README) after `pangeo-2025`'s unpinned `zarr>=3` drifted to 3.2.1 while its `xarray` (2025.3.1) did not, breaking all reads/writes to zarr-format-3 stores; documented as an edge case above | 2026-07-03 |
 
 ---
 
