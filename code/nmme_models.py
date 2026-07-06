@@ -27,6 +27,12 @@ NMME_BASE = "https://iridl.ldeo.columbia.edu/SOURCES/.Models/.NMME"
 # if you suspect the previous build cached bad data.
 _TREF_HIND_BUST = "1"   # appended as /<n>/pop/ before /dods in tref hindcast URLs
 _TREF_FCST_BUST = "5"   # different value for forecast so both keys are unique
+_SST_HIND_BUST = "1"    # same trick for NCEP-CFSv2 sst hindcast URL
+_SST_FCST_BUST = "2"    # different value for forecast so both keys are unique
+                        # (confirmed stale Squid cache on the forecast URL,
+                        # 2026-07-06); other models' sst URLs are on a
+                        # different data flow and untested for /pop/, so left
+                        # unbusted for now
 DATA_DIR = Path(__file__).parent.parent / "data"
 
 VARIABLES = {
@@ -171,8 +177,8 @@ MODELS = [
         chunks=dict(S=12, M=4, L=10, Y=181, X=360),
         vars=dict(
             sst=dict(
-                h_url=f"{NMME_BASE}/.NCEP-CFSv2/.HINDCAST/.PENTAD_SAMPLES/.MONTHLY/.sst/dods",
-                f_url=f"{NMME_BASE}/.NCEP-CFSv2/.FORECAST/.PENTAD_SAMPLES/.MONTHLY/.sst/dods",
+                h_url=f"{NMME_BASE}/.NCEP-CFSv2/.HINDCAST/.PENTAD_SAMPLES/.MONTHLY/.sst/{_SST_HIND_BUST}/pop/dods",
+                f_url=f"{NMME_BASE}/.NCEP-CFSv2/.FORECAST/.PENTAD_SAMPLES/.MONTHLY/.sst/{_SST_FCST_BUST}/pop/dods",
                 var_src="sst", k_offset=False,
             ),
             tref=dict(

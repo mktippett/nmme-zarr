@@ -80,6 +80,7 @@ exponential backoff starting at 2 s.
 | `DEFAULT_RETRIES` | 5 | IRIDL occasionally drops connections mid-transfer. |
 | `DEFAULT_BACKOFF` | 2.0 s (doubles) | Gives server time to recover without hammering. |
 | `_TREF_HIND_BUST` / `_TREF_FCST_BUST` | `"1"` / `"5"` (in `nmme_models.py`) | IRIDL uses a Squid caching proxy. Adding `/N/pop/` before `/dods` changes the cache key without changing the data, bypassing stale cache entries that return zeros. Increment both before any tref rebuild if cache corruption is suspected; use distinct values for hind and fcst so both keys are unique. |
+| `_SST_HIND_BUST` / `_SST_FCST_BUST` | `"1"` / `"2"` (in `nmme_models.py`) | Same `/N/pop/` cache-bust trick, applied to NCEP-CFSv2's sst URLs only (confirmed stale-metadata cache hit 2026-07-06 — see Edge Cases below). The other 6 models' sst URLs are unbusted; only add the pattern to a model if its sst feed is confirmed to hit the same stale-cache symptom. |
 | Chunk S | 12 | Aligns with calendar year; monthly appends fill predictably. |
 | Chunk M | 4–5 | Keeps per-chunk size 52–78 MB (float32). |
 | Chunk L, Y, X | full | One full map per (S, M) tile; enables efficient map reads. |
@@ -116,6 +117,16 @@ exponential backoff starting at 2 s.
   fix have zarr `fill_value=0.0` in their encoding metadata. Unwritten chunks in
   those stores silently return 0 instead of NaN. The only safe remedy is a full
   rebuild; there is no in-place patch for zarr fill_value.
+- **IRIDL Squid cache serving a stale (short) S axis**: distinct from the
+  zero-fill symptom above — here the cached OPeNDAP response for NCEP-CFSv2's
+  sst forecast URL under-reported the `S` dimension length by 1, hiding the
+  most recently issued forecast start entirely (`update_archive.py` saw
+  `New S: 0` when a cache-busted request confirmed a new start was actually
+  available). Diagnosed 2026-07-06 by comparing `dds_dims()` against a
+  manually cache-busted `.dds` request (`/N/pop/` or a `?_=<timestamp>` query
+  param). Fixed by adding `_SST_HIND_BUST`/`_SST_FCST_BUST` and applying
+  `/N/pop/` to NCEP-CFSv2's sst URLs only; other models' sst feeds have not
+  shown this symptom and were left unbusted.
 
 ## 7. Synchronization Log
 
@@ -125,6 +136,7 @@ exponential backoff starting at 2 s.
 | 2026-04-06 | zarr v3 fixes: `ZstdCodec`, `compressors=[...]`, `dtype='uint8'` for `_filled`, calendar patched to `'360_day'` at write time | 2026-04-06 |
 | 2026-04-22 | Parameterised for multiple variables: `--var {sst,tref}` CLI flag; `VARIABLES` table and `resolve_model` in `nmme_models.py`; `var_name`/`var_attrs` keys in model dict replace hardcoded `"sst"` literals; `fetch_sst_block` renamed `fetch_data_block` | 2026-04-22 |
 | 2026-05-27 | Added `fill_value=np.float32("nan")` to zarr encoding in `init_group` — prevents unwritten chunks from silently returning 0.0 instead of NaN. Added `_qa_slab()`: logs WARNING for any start with all-zero or spatially constant finite values (IRIDL Squid cache-miss signature). Added `_TREF_HIND_BUST`/`_TREF_FCST_BUST` cache-busting URL constants to `nmme_models.py`; all 7 tref URLs updated to include `/N/pop/dods` pattern. tref store rebuilt from scratch with these fixes. | 2026-05-27 |
+| 2026-07-06 | Diagnosed a distinct Squid stale-cache symptom on NCEP-CFSv2's sst forecast URL (short `S` axis hiding the newest start, not zero-fill). Added `_SST_HIND_BUST`/`_SST_FCST_BUST` to `nmme_models.py` and applied `/N/pop/` to NCEP-CFSv2's sst URLs only; ran `update_archive.py --var sst --models NCEP-CFSv2` to pick up the previously-hidden start. | 2026-07-06 |
 
 ---
 

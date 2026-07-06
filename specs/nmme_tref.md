@@ -69,7 +69,10 @@ than NaN.
 | GFDL-SPEAR | 84 starts (1999–2025 partial) | all-zero |
 | COLA×2, NASA, NCEP | 0 | clean |
 
-SST store was unaffected (different URL paths; likely different cache state).
+SST store was unaffected by *this* zero-fill incident (different URL paths;
+different cache state at the time). A separate Squid staleness symptom was
+later found on NCEP-CFSv2's sst forecast URL (stale/short `S` axis hiding the
+newest start, not zero-fill) — see `specs/build_archive.md` §5/§7, 2026-07-06.
 
 **Downstream symptom:** zeros in the tref climatology (clim ~260 K instead of
 ~299 K), producing ~40 K anomaly offsets and flat lag correlations for the
@@ -96,7 +99,7 @@ affected models.
 | `k_offset` | True (CanSIPS only) | False (all models) |
 | GFDL var_src | `sst_regridded` | `tref` |
 | standard_name | `sea_surface_temperature` | `air_temperature` |
-| URL cache-bust | not used | `/N/pop/dods` (see Section 3) |
+| URL cache-bust | NCEP-CFSv2 only, since 2026-07-06 (`/N/pop/dods`) | all 7 models (see Section 3) |
 
 ## 7. Synchronization Log
 
@@ -104,6 +107,7 @@ affected models.
 |------|--------|--------------|
 | 2026-04-22 | Initial tref spec created alongside `--var tref` support in build/update scripts | 2026-04-22 |
 | 2026-05-27 | Documented Squid cache-zero incident; recorded affected models; added Sections 3 (cache-busting URL), 5 (data-quality issues); updated GFDL var_src note; removed "(verify)" qualifier | 2026-05-27 |
+| 2026-07-06 | Corrected §5 "SST unaffected" note and §6 cache-bust row: NCEP-CFSv2's sst URLs now use `/N/pop/` too (separate stale-S-axis incident; full details in `specs/build_archive.md`) | 2026-07-06 |
 
 ## 8. Verification snippet
 
