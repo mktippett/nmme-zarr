@@ -28,6 +28,20 @@ DEFAULT_BACKOFF = 2.0   # seconds; doubles each retry
 # build_archive drives block size; this module doesn't enforce it.
 
 
+def bust_url(url: str, token: str) -> str:
+    """Insert a fresh /<token>/pop/ segment before the trailing /dods.
+
+    IRIDL's Squid cache keys on the full URL text. Pushing an arbitrary
+    number onto the ingrid stack and popping it is a numeric no-op but
+    changes the cache key, forcing a fresh fetch past a stale cache entry.
+    Safe to stack on top of any /pop/ segments already baked into the URL
+    (e.g. the static _TREF_HIND_BUST-style constants in nmme_models.py).
+    """
+    if url.endswith("/dods"):
+        return f"{url[:-len('/dods')]}/{token}/pop/dods"
+    return f"{url}/{token}/pop"
+
+
 def dds_dims(url: str) -> dict[str, int]:
     """Return {dim_name: size} by parsing the OPeNDAP DDS text endpoint.
 

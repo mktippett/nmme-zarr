@@ -21,6 +21,7 @@ Usage
 import argparse
 import logging
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -31,7 +32,7 @@ import netCDF4
 
 sys.path.insert(0, str(Path(__file__).parent))
 from nmme_models import MODELS, MODEL_BY_GROUP, resolve_model, VARIABLES
-from iridl_io import fetch_data_block
+from iridl_io import fetch_data_block, bust_url
 
 log = logging.getLogger(__name__)
 
@@ -182,8 +183,17 @@ def recheck_tail(store_path: Path, m: dict,
 # Per-model update
 # ---------------------------------------------------------------------------
 
-def update_model(store_path: Path, m: dict, recheck_n: int = RECHECK_TAIL) -> None:
+def update_model(store_path: Path, m: dict, recheck_n: int = RECHECK_TAIL,
+                 bust_cache: bool = False) -> None:
     log.info("=== %s ===", m["group"])
+
+    if bust_cache:
+        token = str(int(time.time()))
+        m = dict(m)
+        for key in ("h_url", "f_url"):
+            if m.get(key):
+                m[key] = bust_url(m[key], token)
+        log.info("[%s] Cache-busting this run with token %s", m["group"], token)
 
     # --- remote S ---
     if m["combined"]:
@@ -242,6 +252,10 @@ def main():
                         help="Path to zarr store; only valid when a single --var is given")
     parser.add_argument("--recheck-n", type=int, default=RECHECK_TAIL,
                         help="Number of tail starts to re-fetch (default: %(default)s)")
+    parser.add_argument("--bust-cache", action="store_true",
+                        help="Append a fresh per-run cache-busting token to IRIDL URLs, "
+                             "bypassing stale Squid cache entries (use if Remote S looks "
+                             "stuck below the count shown on the IRIDL data page)")
     parser.add_argument("--log-level", default="INFO")
     args = parser.parse_args()
 
@@ -269,7 +283,7 @@ def main():
         log.info("===== Updating %s store =====", var)
         for group_name in selected:
             update_model(store_path, resolve_model(group_name, var),
-                         recheck_n=args.recheck_n)
+                         recheck_n=args.recheck_n, bust_cache=args.bust_cache)
 
 
 if __name__ == "__main__":

@@ -29,6 +29,13 @@ Each variable has its own independent store.
 
 For each model:
 
+0. **Optional cache-bust** (`--bust-cache`): if set, generate one token per
+   model per run (`str(int(time.time()))`) and rewrite `h_url`/`f_url` via
+   `bust_url()` (in `iridl_io.py`), which inserts a fresh `/<token>/pop/`
+   segment before the trailing `/dods`. This token is stacked on top of any
+   static bust segment already baked into the URL by `nmme_models.py`
+   (`_TREF_HIND_BUST` etc.) and is used consistently for the remote-S probe
+   and all subsequent data fetches in that model's run.
 1. **Retrieve remote S** from IRIDL (same `get_remote_s` calls as build).
 2. **Retrieve local S** from `zarr.open_group(...)[group]["S"][:]`.
 3. **New starts** = `setdiff1d(remote_S, local_S)`.
@@ -52,6 +59,7 @@ For each model:
 |------|-------|-----|
 | `RECHECK_TAIL` | 2 (default) | IRIDL sometimes updates the most recent 1–2 months as new members arrive. Override with `--recheck-n N` when more starts had partial members at build time. |
 | Timeout, retries, backoff | Same as build | Same rationale. |
+| Cache-bust token | `str(int(time.time()))` per model per run, only when `--bust-cache` set | Needs to be unique per run (unlike the static `_TREF_*_BUST`/`_SST_*_BUST` constants in `nmme_models.py`, which bust the cache once and then become stale cache keys themselves once Squid has seen that exact URL). Wall-clock time is a convenient, always-fresh, human-debuggable token; the numeric value has no semantic meaning to IRIDL. |
 
 ## 6. Edge Cases & Error Handling
 
@@ -65,6 +73,20 @@ For each model:
   correctly; no special treatment needed.
 - **T coordinate on append**: the appended Dataset includes `T[S, L] = S + L`
   so the T array stays consistent without rewriting old data.
+- **Stale Squid cache (`Remote S` stuck below IRIDL's page count)**: IRIDL's
+  Squid proxy caches on exact URL text, including any static `/pop/`
+  bust segment baked into `nmme_models.py`. Once that exact busted URL has
+  been requested, it too becomes a stale cache key — the symptom recurs on
+  any model/variable, not just the ones previously documented in the
+  project CLAUDE.md (NCEP-CFSv2 sst, tref zero-fills). Confirmed on
+  2026-07-07 for NASA-GEOSS2S tref: the plain run reported `Remote S: 545`
+  (matching local, so "nothing new") while IRIDL's own data-selection page
+  showed a forecast start through 1 Jul 2026. Re-running with `--bust-cache`
+  immediately picked up the missing start (`Remote S: 546`). Diagnostic: compare
+  the script's `Remote S` count against the IRIDL variable's data-selection
+  HTML page (not just `dds_dims()`, which is served through the same cache).
+  Fix: rerun the affected model(s) with `--bust-cache`; no code constant
+  needs to be hand-incremented.
 - **xarray/zarr version skew**: `ds_new.to_zarr(..., mode="a", append_dim="S")`
   opens existing store variables (`open_store_variable`) as part of the
   append, which decodes `_FillValue` against the array's zarr dtype metadata.
@@ -86,6 +108,7 @@ For each model:
 | 2026-05-05 | Added `_patch_calendar()` helper; xarray also reads existing S/T metadata during append validation and cftime rejects `calendar='360'` (requires `'360_day'`); patch fixes the store in-place before each append | 2026-05-05 |
 | 2026-05-30 | `--var` changed to `nargs="+"` defaulting to all variables; bare invocation now updates both `sst` and `tref` stores; `--store` now errors if multiple vars are selected | 2026-05-30 |
 | 2026-07-03 | Switched documented environment from `pangeo-2025` to `pangeo-local` (usage docstring, README) after `pangeo-2025`'s unpinned `zarr>=3` drifted to 3.2.1 while its `xarray` (2025.3.1) did not, breaking all reads/writes to zarr-format-3 stores; documented as an edge case above | 2026-07-03 |
+| 2026-07-07 | Added `--bust-cache` CLI flag and `bust_url()` helper (`iridl_io.py`); generates a fresh timestamp token per model per run to bypass stale Squid cache entries, generalizing the previously model-specific static-constant workaround | 2026-07-07 |
 
 ---
 
