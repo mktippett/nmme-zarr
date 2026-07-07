@@ -122,7 +122,7 @@ See `code/sanity_check.py` for worked examples of efficiently computing indices
 | `code/nmme_models.py` | Model registry; `VARIABLES` table; `resolve_model(group, var)` |
 | `code/iridl_io.py` | OPeNDAP helpers: `fetch_data_block`, retry, DDS dim probing |
 | `code/build_archive.py` | Initial archive creation; resumes via `_filled` sentinel |
-| `code/update_archive.py` | Monthly incremental update |
+| `code/update_archive.py` | Monthly incremental update; QAs touched starts for corrupt members (WARNING-only) and re-consolidates store metadata |
 | `code/sanity_check.py` | Visual sanity check and worked example of reading the stores |
 
 Behavioral specs for each script live in `specs/`.

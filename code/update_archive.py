@@ -8,6 +8,10 @@ For each model:
   3. Append missing starts to the zarr group (append_dim="S").
   4. Re-fetch and overwrite the last 2 starts already in the store
      to absorb late-arriving members or IRIDL corrections.
+  5. QA the touched starts for corrupt members (robust-z member-consistency
+     check on the Niño-3.4 box; WARNING only, never masks).
+  6. Stamp last_updated and re-consolidate store metadata so
+     fingerprint-based downstream caches see the change.
 
 Usage
 -----
@@ -37,6 +41,13 @@ from iridl_io import fetch_data_block, bust_url
 log = logging.getLogger(__name__)
 
 RECHECK_TAIL = 2   # number of latest starts to re-fetch even if present
+
+# Member-consistency QA (see qa_member_consistency): a member is flagged when
+# its Niño-3.4-box deviation from the ensemble median exceeds
+# QA_Z_THRESH * max(1.4826 * MAD, QA_SCALE_FLOOR) at any lead.
+QA_Z_THRESH = 6.0     # robust-z threshold
+QA_SCALE_FLOOR = 0.15  # °C/K; floor on the member-spread scale so near-identical
+                       # ensembles (lead 0) don't flag on numerical noise
 
 
 # ---------------------------------------------------------------------------
@@ -179,6 +190,79 @@ def recheck_tail(store_path: Path, m: dict,
                  m["group"], local_pos, sv)
 
 
+def _s_label(sv: float) -> str:
+    """'YYYY-MM' label for an S value (months since 1960-01, 360-day)."""
+    return f"{1960 + int(sv) // 12}-{int(sv) % 12 + 1:02d}"
+
+
+def qa_member_consistency(store_path: Path, m: dict,
+                          s_checked: np.ndarray) -> int:
+    """Flag ensemble members inconsistent with their ensemble (corrupt-member QA).
+
+    Motivated by two corrupt COLA-RSMAS-CESM1 members delivered by IRIDL
+    (2026-03 M=5: +2.8 °C hot at lead 0; 2026-07 M=1: correct at lead 0,
+    then ~3 °C below the ensemble at leads 2-8). Members share the observed
+    initial state and monthly Niño-3.4 cannot jump by multiple °C, so a
+    member far outside its own ensemble is corrupt, not extreme weather.
+
+    For each checked start, the cos-lat-weighted Niño-3.4 box average
+    (X∈[190,240], Y∈[−5,5] — same box as sanity_check.n34_average) is
+    computed per (member, lead) and compared to the ensemble median at that
+    lead. A member is flagged when its |deviation| exceeds
+    QA_Z_THRESH * max(1.4826 * MAD, QA_SCALE_FLOOR). The MAD-based scale
+    self-calibrates across leads and ensemble designs: at lead 0 the member
+    spread is tiny, so a corrupt member stands out at huge z; at long leads
+    (and for lagged ensembles like NCEP-CFSv2 / NASA-GEOSS2S, whose members
+    legitimately disagree at nominal lead 0 during rapid transitions) the
+    spread — and hence the tolerance — is larger. This is why a fixed
+    lead-0 threshold is not used: it would false-alarm on lagged ensembles
+    and would have missed the 2026-07 case entirely.
+
+    Flags are WARNINGs only — the data is never masked or modified. A flag
+    means: verify the member against IRIDL directly and, if confirmed,
+    report upstream to the data provider; once IRIDL serves corrected data,
+    repair with --recheck-n covering the affected start.
+
+    Returns the number of flagged (start, member) pairs.
+    """
+    ds = xr.open_zarr(str(store_path), group=m["group"], decode_times=False)
+    local_s = ds["S"].values.astype(np.float32)
+    pos = np.searchsorted(local_s, np.sort(s_checked))
+    x = ds[m["var_name"]].isel(S=pos).sortby("Y")
+    w = np.cos(np.deg2rad(x.Y))
+    box = (x.sel(X=slice(190, 240), Y=slice(-5, 5))
+           .weighted(w).mean(["X", "Y"]).compute())   # (S, M, L)
+
+    med = box.median("M")
+    mad = np.abs(box - med).median("M")
+    scale = np.maximum(1.4826 * mad, QA_SCALE_FLOOR)
+    dev = box - med
+    flagged = (np.abs(dev) > QA_Z_THRESH * scale)      # (S, M, L)
+
+    n_flags = 0
+    flagged_sm = flagged.any("L")
+    for i_s, i_m in np.argwhere(flagged_sm.values):
+        n_flags += 1
+        d = dev.isel(S=i_s, M=i_m)
+        leads = d.L.values[flagged.isel(S=i_s, M=i_m).values]
+        worst = float(d.isel(L=int(np.abs(d).argmax("L"))))
+        log.warning(
+            "[%s] QA: member M=%d, start %s deviates from the ensemble "
+            "median by up to %+.2f at leads %s — possible corrupt member "
+            "as delivered by IRIDL; verify upstream, do not mask downstream.",
+            m["group"], int(box.M.values[i_m]),
+            _s_label(float(box.S.values[i_s])), worst,
+            np.round(leads, 1).tolist(),
+        )
+    if n_flags:
+        log.warning("[%s] QA: %d member-consistency flag(s) on %d checked start(s).",
+                    m["group"], n_flags, len(s_checked))
+    else:
+        log.info("[%s] QA: member consistency OK on %d checked start(s).",
+                 m["group"], len(s_checked))
+    return n_flags
+
+
 # ---------------------------------------------------------------------------
 # Per-model update
 # ---------------------------------------------------------------------------
@@ -232,9 +316,21 @@ def update_model(store_path: Path, m: dict, recheck_n: int = RECHECK_TAIL,
     recheck_tail(store_path, m, local_s, s_hind, s_fcst, s_all_remote, M_max,
                  n=recheck_n)
 
+    # QA every start touched this run (new appends + rechecked tail)
+    s_checked = np.union1d(new_s, local_s[-recheck_n:])
+    qa_member_consistency(store_path, m, s_checked)
+
     # Update timestamp
     root = zarr.open_group(str(store_path), mode="r+")
     root[m["group"]].attrs["last_updated"] = datetime.now(timezone.utc).isoformat()
+
+    # Re-consolidate so readers using consolidated metadata (root zarr.json)
+    # see this run's writes. xarray's to_zarr re-consolidates on append, but a
+    # recheck-only run (raw zarr writes + the attrs stamp above) does not —
+    # without this, downstream fingerprint-based caches (e.g. nmme_enso's
+    # load_nino34_ssta) read a stale last_updated and silently keep serving
+    # pre-recheck data.
+    zarr.consolidate_metadata(str(store_path))
     log.info("[%s] Update complete.", m["group"])
 
 
