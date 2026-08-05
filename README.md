@@ -87,7 +87,20 @@ mamba run -n pangeo-local python code/update_archive.py --models NCEP-CFSv2
 
 # Re-fetch last N starts (e.g. if members were incomplete at build time)
 mamba run -n pangeo-local python code/update_archive.py --recheck-n 5
+
+# Bypass a stale IRIDL Squid cache entry (see Data Quality Notes)
+mamba run -n pangeo-local python code/update_archive.py --var sst --models NASA-GEOSS2S --bust-cache
+
+# Backfill starts that were empty upstream at fetch time, once they appear
+# (--recheck-n overwrites the last N starts in place; count back far enough
+#  to cover the gap)
+mamba run -n pangeo-local python code/update_archive.py --var sst --models GFDL-SPEAR --recheck-n 14
 ```
+
+If `Remote S` in the log is stuck below the start count shown on the model's
+IRIDL page, the update is reading a stale cache entry and will report
+`New S: 0` with nothing to append. Re-run the affected model with
+`--bust-cache`.
 
 ### Sanity check
 
@@ -130,6 +143,11 @@ Behavioral specs for each script live in `specs/`.
 ## Data Quality Notes
 
 - `build_archive.py` logs a WARNING for any forecast start with all-zero or constant data. Check warnings before running analysis.
-- If zeros appear in a tref rebuild, increment `_TREF_HIND_BUST` / `_TREF_FCST_BUST` in `code/nmme_models.py` to bypass the IRIDL Squid cache.
+- IRIDL serves data through a Squid proxy that caches on exact URL text, producing two distinct symptoms:
+  - **Zeros / constant fields** in a rebuild — increment `_TREF_HIND_BUST` / `_TREF_FCST_BUST` (or `_SST_HIND_BUST` / `_SST_FCST_BUST`) in `code/nmme_models.py` and re-run `build_archive.py`.
+  - **A stale, short `S` axis** during a monthly update — `Remote S` sits below the start count on the IRIDL page, `New S: 0`, and the newest forecast start is silently never appended. Re-run with `--bust-cache`; no code constant change needed. Confirmed on NASA-GEOSS2S sst 2026-08-05: the cached `.FORECAST/.MONTHLY/.sst` URL reported `S = 114` (through 1 Jul 2026) while a cache-busted request reported `S = 115` (through 1 Aug 2026).
+  - Note the static `_*_BUST` constants bust the cache only once — Squid then caches that exact busted URL too. `--bust-cache` uses a fresh per-run timestamp token and is the reliable option.
 - NCEP-CFSv2: a real data gap around 2010–2011 is visible in tref.
-- GFDL-SPEAR: some recent forecast starts may be missing at build time.
+- GFDL-SPEAR: some recent forecast starts may be missing at build time. GFDL posts SPEAR only periodically, so IRIDL can expose an `S` value whose data is not yet there — the missing data is genuinely missing upstream, not a fetch or cache failure. (Distinguish from the stale-`S`-axis symptom above: there, a cache-busted `.dds` request reports *more* starts than the cached one; here, cached and busted agree and the start is simply empty.)
+- **Empty starts are written as NaN placeholders, and backfill is manual.** `S` is an append dimension, so a start skipped at write time can never be inserted in order later — the placeholder has to be written when the `S` value first appears. There is deliberately no automatic backfill pass: when the data shows up upstream, re-fetch it by hand with `--models <MODEL> --recheck-n <N>`, choosing `N` large enough to reach back over the gap. `recheck_tail()` overwrites the last `N` starts in place unconditionally, so this fills the NaNs without touching the `S` axis. Known open gaps, GFDL-SPEAR sst as of 2026-08-05 — 2025-06, 2025-08, 2025-10, 2025-11, 2025-12, 2026-02, 2026-03, 2026-05, 2026-06 (all-NaN across every member and lead; 418 of 427 local starts are valid). Note the intermittent pattern: SPEAR has posted roughly every second or third month since mid-2025, and none of these has filled in over the following year, so treat them as likely permanent rather than pending. A backfill reaching the earliest of them needs `--recheck-n 14` (2025-06 is 13 starts back from 2026-07).
+- Downstream, `nmme_enso`'s `config.load_nino34_ssta` prints any interior all-NaN starts in its load banner, so a gap is visible at analysis time without reading update logs. Analysis scripts report these gaps; they never mask them.

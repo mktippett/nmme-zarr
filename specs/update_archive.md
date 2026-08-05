@@ -103,7 +103,40 @@ For each model:
   the script's `Remote S` count against the IRIDL variable's data-selection
   HTML page (not just `dds_dims()`, which is served through the same cache).
   Fix: rerun the affected model(s) with `--bust-cache`; no code constant
-  needs to be hand-incremented.
+  needs to be hand-incremented. Recurrence confirmed 2026-08-05, this time
+  on NASA-GEOSS2S **sst** (whose URLs carry no static bust segment at all):
+  cached `.dds` reported `S = 114` (through 1 Jul 2026), cache-busted
+  reported `S = 115` (through 1 Aug 2026), so the run logged `New S: 0` and
+  appended nothing. The August init was missing from every downstream
+  nmme_enso plume until the model was re-run with `--bust-cache`.
+- **A start exists on the remote `S` axis but its data is empty**: distinct
+  from the stale-cache symptom above — here cached and cache-busted requests
+  *agree* on the `S` count, and the start is simply not populated yet.
+  GFDL-SPEAR is the standing example: GFDL posts SPEAR only periodically
+  (roughly every second or third month since mid-2025), so IRIDL exposes an
+  `S` value ahead of the data. Such starts are written as **all-NaN
+  placeholders**, deliberately: `S` is an append dimension, so a start
+  skipped at write time could never be inserted in order afterwards — the
+  placeholder must be written when the `S` value first appears, or the slot
+  is lost permanently.
+- **Backfilling an empty start is manual, by design** (decided 2026-08-05).
+  There is no automatic NaN-scanning backfill pass: when data appears
+  upstream, re-fetch by hand with `--models <MODEL> --recheck-n <N>`,
+  choosing `N` large enough to reach back over the gap. `recheck_tail()`
+  overwrites the last `N` starts in place unconditionally (it does not skip
+  starts that already hold data), so this fills NaNs without touching the
+  `S` axis. Rejected alternatives: a per-run backfill scan (rechecks that
+  are almost always wasted, since SPEAR's older gaps have not filled in
+  over a year and are likely permanent) and a known-permanent-gaps skip list
+  (would freeze a merely-late gap into a declared-absent one). Trade-off
+  accepted: a gap that fills upstream stays NaN locally until someone
+  notices — which is what the downstream banner in the next bullet is for.
+- **Downstream visibility**: nmme_enso's `config.load_nino34_ssta` prints
+  any *interior* all-NaN starts (all-NaN and between that model's own first
+  and last valid start) in its load banner, on both its cache-hit and
+  recompute paths. This is how an empty start surfaces at analysis time
+  without reading update logs. Analysis scripts report these gaps and never
+  mask them, per that project's fix-the-source rule.
 - **Why the QA is a robust z at every lead, not a fixed lead-0 threshold**:
   the two motivating corrupt members (see Synchronization Log 2026-07-07)
   had opposite signatures — one was +2.8 °C wrong *at* lead 0, the other was
@@ -156,6 +189,7 @@ For each model:
 | 2026-07-07 | Added `--bust-cache` CLI flag and `bust_url()` helper (`iridl_io.py`); generates a fresh timestamp token per model per run to bypass stale Squid cache entries, generalizing the previously model-specific static-constant workaround | 2026-07-07 |
 | 2026-07-07 | Added `qa_member_consistency()` (robust-z member-consistency QA on the Niño-3.4 box, run on every start touched per model; `QA_Z_THRESH=6.0`, `QA_SCALE_FLOOR=0.15`; WARNING-only). Motivated by two corrupt COLA-RSMAS-CESM1 members delivered by IRIDL and confirmed unchanged under a cache-busted re-fetch (2026-03 M=5: +2.79 °C at leads 0.5–3.5; 2026-07 M=1: −3.04 °C at leads 1.5–8.5); both flagged by the new QA, reported upstream by MKT. | 2026-07-07 |
 | 2026-07-07 | `update_model` now ends with `zarr.consolidate_metadata()`; previously a recheck-only run never refreshed root consolidated metadata, so fingerprint-based downstream caches (nmme_enso `load_nino34_ssta`) saw a stale `last_updated` and would not invalidate after an in-place data repair. Verified end-to-end: nmme_enso's `_store_fingerprint` sees the new stamp immediately after a recheck-only run. | 2026-07-07 |
+| 2026-08-05 | **No code change** — documentation only, recording two source-data conditions hit this session. (a) The stale-Squid stale-`S`-axis symptom recurred on NASA-GEOSS2S sst (cached `S = 114` vs. busted `S = 115`), causing a silent `New S: 0` no-op; fixed by re-running with the existing `--bust-cache`. (b) Decided that empty-but-listed starts stay as all-NaN placeholders with **manual** backfill via `--models <M> --recheck-n <N>`, rejecting an automatic per-run backfill scan and a known-gaps skip list. Both written up in §6 Edge Cases and in `README.md` (Monthly update commands + Data Quality Notes), including the standing GFDL-SPEAR gap list. | 2026-08-05 |
 
 ---
 
