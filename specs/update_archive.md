@@ -53,6 +53,9 @@ For each model:
 5. **Recheck tail**: for the last `RECHECK_TAIL=2` starts in the local store
    (after any append), re-fetch and overwrite in-place via direct zarr array
    indexing `group[m["var_name"]][local_pos:local_pos+1] = slab`.
+   The per-start fetch-and-overwrite lives in `refetch_starts(store, m,
+   s_values, …)`; `recheck_tail` calls it with `local_s[-n:]`, and
+   `cfsv2_completeness.py` reuses it for arbitrary starts.
 6. **Member-consistency QA** on every start touched this run (new appends ∪
    rechecked tail): compute the cos-lat-weighted Niño-3.4 box average
    (X∈[190,240], Y∈[−5,5], same box as `sanity_check.n34_average`) per
@@ -190,6 +193,7 @@ For each model:
 | 2026-07-07 | Added `qa_member_consistency()` (robust-z member-consistency QA on the Niño-3.4 box, run on every start touched per model; `QA_Z_THRESH=6.0`, `QA_SCALE_FLOOR=0.15`; WARNING-only). Motivated by two corrupt COLA-RSMAS-CESM1 members delivered by IRIDL and confirmed unchanged under a cache-busted re-fetch (2026-03 M=5: +2.79 °C at leads 0.5–3.5; 2026-07 M=1: −3.04 °C at leads 1.5–8.5); both flagged by the new QA, reported upstream by MKT. | 2026-07-07 |
 | 2026-07-07 | `update_model` now ends with `zarr.consolidate_metadata()`; previously a recheck-only run never refreshed root consolidated metadata, so fingerprint-based downstream caches (nmme_enso `load_nino34_ssta`) saw a stale `last_updated` and would not invalidate after an in-place data repair. Verified end-to-end: nmme_enso's `_store_fingerprint` sees the new stamp immediately after a recheck-only run. | 2026-07-07 |
 | 2026-08-05 | **No code change** — documentation only, recording two source-data conditions hit this session. (a) The stale-Squid stale-`S`-axis symptom recurred on NASA-GEOSS2S sst (cached `S = 114` vs. busted `S = 115`), causing a silent `New S: 0` no-op; fixed by re-running with the existing `--bust-cache`. (b) Decided that empty-but-listed starts stay as all-NaN placeholders with **manual** backfill via `--models <M> --recheck-n <N>`, rejecting an automatic per-run backfill scan and a known-gaps skip list. Both written up in §6 Edge Cases and in `README.md` (Monthly update commands + Data Quality Notes), including the standing GFDL-SPEAR gap list. | 2026-08-05 |
+| 2026-10-13 | Refactor only, no behavior change: per-start re-fetch factored out of `recheck_tail` into `refetch_starts()` (reused by the new `cfsv2_completeness.py`); its log line changed from "Rechecked tail S index" to "Re-fetched S index". | 2026-10-13 |
 
 ---
 

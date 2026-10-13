@@ -156,10 +156,18 @@ def recheck_tail(store_path: Path, m: dict,
                  s_fcst: np.ndarray, s_all_remote: np.ndarray, M_max: int,
                  n: int = RECHECK_TAIL) -> None:
     """Re-fetch and overwrite the last n starts in the local store."""
-    tail = local_s[-n:]
+    refetch_starts(store_path, m, local_s[-n:], local_s, s_hind, s_fcst,
+                   s_all_remote, M_max)
+
+
+def refetch_starts(store_path: Path, m: dict, s_values: np.ndarray,
+                   local_s: np.ndarray, s_hind: np.ndarray,
+                   s_fcst: np.ndarray, s_all_remote: np.ndarray,
+                   M_max: int) -> None:
+    """Re-fetch and overwrite the given starts (S values) in the local store."""
     group = zarr.open_group(str(store_path), mode="r+")[m["group"]]
 
-    for sv in tail:
+    for sv in s_values:
         local_pos = int(np.searchsorted(local_s, sv))
         slab = np.full((1, M_max, m["L_max"], 181, 360), np.nan, dtype=np.float32)
         in_hind = np.isin([sv], s_hind)[0]
@@ -186,7 +194,7 @@ def recheck_tail(store_path: Path, m: dict,
             slab -= 273.15
 
         group[m["var_name"]][local_pos:local_pos + 1, :, :, :, :] = slab
-        log.info("[%s] Rechecked tail S index %d (value %.1f).",
+        log.info("[%s] Re-fetched S index %d (value %.1f).",
                  m["group"], local_pos, sv)
 
 

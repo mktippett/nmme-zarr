@@ -34,3 +34,6 @@ __pycache__/
 # Editor artifacts
 .vscode/
 .idea/
+
+# Private IRIDL commands (not for the public repo)
+code/iridl_private.py
